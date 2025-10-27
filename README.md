@@ -2,7 +2,7 @@
 
 This repo includes R functions to select the best match from BLAST results against different reference databases.
 
-Paula Pappalardo developed the first functions for comparing two specific reference databases (e.g., MIDORI vs. BOLD). Emma Palmer expanded this work, creating general functions to compare up to three reference databases. Emma and Paula work at the Smithsonian Environmental Research Center and have been involved in analyzing metabarcoding data for both the [Coastal Disease Ecology](https://serc.si.edu/labs/coastal-disease-ecology) and the [Marine Invasions laboratories](https://serc.si.edu/labs/marine-invasions-research).
+Paula Pappalardo developed the first functions for comparing two specific reference databases (e.g., MIDORI vs. BOLD). Emma Palmer expanded this work, creating general functions to compare up to three reference databases. Emma and Paula work at the Smithsonian Environmental Research Center, analyzing metabarcoding data for projects in the [Coastal Disease Ecology](https://serc.si.edu/labs/coastal-disease-ecology) and [Marine Invasions](https://serc.si.edu/labs/marine-invasions-research) laboratories.
 
 CITATION: Please cite this repo XXX
 
@@ -37,9 +37,36 @@ We also need to add higher taxonomy for the resulting matches. Our functions req
 
 Finally, we need to keep only the best hit from each database. So for each ASV or OTU, we need only one match per database. For our work, we have been using the best-shared-method from [Pappalardo et al. (2025)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70147).
 
-## compare-two-databases
+## compare-two-databases.R
 
-These R files include functions:
+This R file includes functions:
 
-* addScinameLevel(): It will find the resolution of the scientific name and add the column _sciname_level_.
-* compareBOLDandMIDORI(): compares matches of BLAST done against BOLD and MIDORI databases
+* addScinameLevel(): finds the resolution of the scientific name and adds the column _sciname_level_.
+* labelFinalMatch(): condenses taxonomy into one string and adds reference database label.
+* compareBOLDandMIDORI(): compares matches of BLAST done against BOLD and MIDORI databases.
+* pickFinalTax_BoldVsMidori(): keeps only the best match from each database and tags from which database came from.
+* compareMLMLandLavrador(): compares matches of BLAST done against MLML and Lavrador databases.
+* pickFinalTax_MLMLvsLavrador(): keeps only the best match from each database and tags from which database came from.
+* compareGlobalVsCurated(): compares matches from global (midori, bold) to curated (mlml, lavrador) databases.
+* pickFinalTax_GlobalVsCurated(): keeps only the best match from each database and tags from which database came from.
+
+Usage:
+
+Here is an example to first compare between two large-scale public databases (bold and midori) and two smaller databases (mlml and lavrador):
+
+```R
+bold_vs_midori <- compareBOLDandMIDORI(your_midori_df, your_bold_df, identiy_th) %>%
+    pickFinalTax_BoldVsMidori()
+    
+mlml_vs_lavrador <- compareMLMLandLavrador(your_mlml_df, your_lavrador_df, identiy_th) %>%
+    pickFinalTax_MLMLvsLavrador()
+```
+If you first run only the compare function, you can check the cases where both databases have a very good match (e.g., 99% identity) and whether there are conflicts in the assignments.
+
+You can then compare the outcomes of the two:
+
+```R
+your_final_df <- compareGlobalVsCurated() %>%
+pickFinalTax_GlobalVsCurated()
+```
+Now, keep in mind that the taxonomic framework in your databases can be different. It is important to standardize all scientific names to a single taxonomic framework (e.g., GBIF or WoRMS) after you have your final list of matches for each sequence.
