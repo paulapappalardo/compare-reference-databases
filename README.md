@@ -4,7 +4,8 @@ This repo includes R functions to select the best match from BLAST results again
 
 Paula Pappalardo developed the first functions for comparing two specific reference databases (e.g., MIDORI vs. BOLD). Emma Palmer expanded this work, creating general functions to compare up to three reference databases. Emma and Paula work at the Smithsonian Environmental Research Center, analyzing metabarcoding data for projects in the [Coastal Disease Ecology](https://serc.si.edu/labs/coastal-disease-ecology) and [Marine Invasions](https://serc.si.edu/labs/marine-invasions-research) laboratories.
 
-CITATION: Please cite the repo current release in ZENODO [DOI link here]
+CITATION: Please cite the repo current release in ZENODO:
+Paula Pappalardo, & Emma Palmer. (2025). paulapappalardo/compare-reference-databases: First public release of comparing reference database functions (v1.0.0). Zenodo. https://doi.org/10.5281/zenodo.17478719
 
 DEPENDENCIES: The function requires the R packages [dplyr](https://dplyr.tidyverse.org/), and [data.table](https://cran.r-project.org/web/packages/data.table/vignettes/datatable-intro.html).
 
