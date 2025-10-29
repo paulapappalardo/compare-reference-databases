@@ -12,30 +12,39 @@ USAGE: These are R functions taking dataframes or tibbles from blast results as 
 
 ## Reference databases
 
-For our work, we have been using several reference databases, depending on the project and genetic marker:
+For our work, we use several reference databases, depending on the project and genetic marker:
 * [MIDORI](https://www.reference-midori.info/)
 * [BOLD](https://boldsystems.org/data/data-packages/)
 * [Lavrador et al. 2023](https://www.mdpi.com/1424-2818/15/2/174)
 * [Metazoogene](https://metazoogene.org/mzgdb/)
+* [PR2](https://pr2-database.org/)
+* [SILVA](https://www.arb-silva.de/)
+
+Additionally, we also use curated libraries such as:
+
+* Chesapeake Bay Barcode Initiative (CBBI; BioProjects PRJNA396533 and PRJNA498040)
+* StreamCode (BioProject PRJNA421480)
 
 ## Setup
 
-We use this format for BLAST to get results as .tsv files:
+We use this format for BLAST to obtain our results as .tsv files:
 
 ``` bash
 blastn -task blastn -db dbName -query querySeqsFasta -word_size 11 -max_target_seqs 200 -evalue 0.01 -outfmt "6 qseqid sseqid staxids evalue bitscore length qcovs nident pident" -out blastResults.tsv
 ```
 We use ALL of those columns in our comparing functions, so make sure you have them.
 
-We load results renaming columns to make them more human-readable: 
+While loading our results, we rename the columns to make them more straight-forward: 
 
+```R
 midori_blast <- fread("blast/blast_results_PWS_to_midori.tsv", fill = T,
                          col.names = c("query_seqid", "result_seqid", "evalue", "bitscore",
                          "length", "percent_coverage", "nident", "percent_identity")) 
+```
 
-We also need to add higher taxonomy for the resulting matches. Our functions require the columns kingdom, phylum, class, order, family, genus, species, and sciname. The column sciname is the taxonomic name of the lowest resolution. For example, if a match was resolved only to the family level, sciname would have the family name, and genus and species would have NA values. 
+We also need to add higher taxonomy for the resulting matches. Our functions require the columns _kingdom_, _phylum_, _class_, _order_, _family_, _genus_, and _species_. For databases, like PR2, which use non-traditional taxonomic levels, we standardize the taxnomic names using a more traditional database, like [GBIF](https://www.gbif.org/), before running these functions.  The optional column, _sciname_, is the taxonomic name of the lowest resolution. For example, if a match was resolved only to the family level, sciname would have the family name, while genus and species would have NA values. If _sciname_ is not included in the inital dataframe, it will be added through addScinameLevel() within the compare functions (compareBOLDandMIDORI, compareMLMLandLavrador, etc.).
 
-Finally, we need to keep only the best hit from each database. So for each ASV or OTU, we need only one match per database. For our work, we have been using the best-shared-method from [Pappalardo et al. (2025)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70147).
+Finally, we need to keep only the best hit from each database so that each ASV or OTU will only have one match per database. For our work, we have been using the best-shared-method from [Pappalardo et al. (2025)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70147).
 
 ## Comparison rules
 
@@ -46,12 +55,11 @@ To compare across databases, our functions set up a BLAST percent identity thres
 * If the scientific names disagree and both matches had a higher than the BLAST percent identity threshold, we kept the one with better taxonomic resolution. If the taxonomic resolution was the same, we would prioritize the local database match, or BOLD over MIDORI.
 * If both matches were under the BLAST percent identity threshold, we kept the one with the best similarity measures.
 
-
 ## compare-two-databases.R
 
 This R file includes functions:
 
-* addScinameLevel(): finds the resolution of the scientific name and adds the column _sciname_level_.
+* addScinameLevel(): finds the resolution of the scientific name and adds the column(s) _sciname_level_ and _sciname_ (if missing).
 * labelFinalMatch(): condenses taxonomy into one string and adds reference database label.
 * compareBOLDandMIDORI(): compares matches of BLAST done against BOLD and MIDORI databases.
 * pickFinalTax_BoldVsMidori(): keeps only the best match from each database and tags from which database came from.
@@ -59,6 +67,8 @@ This R file includes functions:
 * pickFinalTax_MLMLvsLavrador(): keeps only the best match from each database and tags from which database came from.
 * compareGlobalVsCurated(): compares matches from global (midori, bold) to curated (mlml, lavrador) databases.
 * pickFinalTax_GlobalVsCurated(): keeps only the best match from each database and tags from which database came from.
+* compareLocalVsGlobal(): compares matches from local (cbbi, lavrador) to global (midori, bold) databases; varies from GlobalVsCurated in the formating of the selection critera and the comparison of _sciname_levels_
+* pickFinalTax_LocalVsGlobal(): keeps only the best match from each database and tags from which database came from.
 
 Usage:
 
@@ -80,3 +90,22 @@ your_final_df <- compareGlobalVsCurated() %>%
 pickFinalTax_GlobalVsCurated()
 ```
 Now, keep in mind that the taxonomic framework in your databases can be different. It is important to standardize all scientific names to a single taxonomic framework (e.g., GBIF or WoRMS) after you have your final list of matches for each sequence.
+
+## compare-three-databases.R
+
+This R file includes functions:
+
+* compare3Databases(): compares matches from three databases, typically two curated and two global (CBBI, BOLD, and MIDORI); the order of the databases within the function matters with the curated database going first and the least-trusted database going last
+* pick3FinalTax(): keeps only the best match from each database and tags from which database came from
+
+Note that these functions rely on the dependents addScinameLevel() and labelFinalMatch() from compare-two-databases.R 
+
+Usage:
+
+Here is an example to compare one curated (CBBI) and two global (MIDORI and BOLD) databases:
+
+```R
+your_final_df <- compare3Databases(your_cbbi_df, your_midori_df, your_bold_df, identiy_th) %>%
+    pick3FinalTax()
+```
+Once again, as the taxonomic framework of your databases may be different standardize all scientific names to a single taxonomic framework (e.g., GBIF or WoRMS) after you have your final list of matches for each sequence.
