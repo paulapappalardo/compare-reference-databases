@@ -1,10 +1,13 @@
 #------------------------------------------------------------------------------#
-#-------------------Functions to compare two datababases ----------------------#
+#--------------------Functions to compare two databases------------------------#
 #------------------------------------------------------------------------------#
 #
 # AUTHORS:
 # Paula Pappalardo - Smithsonian Environmental Research Center
 # email: paulapappalardo@gmail.com
+#
+# Emma Palmer - Smithsonian Environmental Research Center
+# email: palmerem@si.edu
 #
 # Please see README file for background and citation instructions. 
 
@@ -15,6 +18,12 @@ addScinameLevel <- function(mydf){
   #  TODO: consider activating subfamily if you are dealing with BOLD output
   # Ouput:
   #   same dataframe with an additional column named sciname_level
+  if(!"sciname" %in% names(mydf)) {
+    mydf <- mydf %>% 
+      rowwise() %>% 
+      mutate(sciname = dplyr::last(na.omit(c(kingdom, phylum, class, order, family, genus, species)))) %>% 
+      ungroup()
+  } 
   mydf_ed <- mydf %>% 
     mutate(sciname_level = case_when(sciname %in% na.omit(species) ~ "species",
                                      sciname %in% na.omit(genus) ~ "genus",
@@ -116,10 +125,10 @@ compareBOLDandMIDORI <- function(mydf_bold, mydf_midori, identity_th){
 pickFinalTax_BoldVsMidori <- function(mydf){
   # Pick best final id and keep final percent identity
   # Args
-  #   mydf: classified dataframe after running compareDatabases(), compareTaxMatches(), and classifyAssignments()
+  #   mydf: classified dataframe after running compareBoldVsMidori()
   # Output
   #   The function will keep only the higher taxonomy of the best hit, and will add column database_source to track where the match came from
-  # Usage: pickFinalTax(.) 
+  # Usage: pickFinalTax_BoldVsMidori(.) 
   #
   mydf_ed <- mydf %>% 
     dplyr::mutate(tax_string = case_when(grepl("keep midori", match_outcome) ~ tax_string_midori,
@@ -157,8 +166,8 @@ pickFinalTax_BoldVsMidori <- function(mydf){
 compareMLMLandLavrador<- function(mydf_mlml, mydf_lavrador, identity_th){
   # Compare matches between MLML and Lavrador for each unknown sequence
   # Args
-  # mydf_mlml: dataframe with blast results from BOLD
-  # mydf_labrador: dataframe with blast results from MIDORI
+  # mydf_mlml: dataframe with blast results from MLML
+  # mydf_labrador: dataframe with blast results from lavrador
   # identity_th: which identity threshold you want to assume "good matches"
   # both dataframes need columns for similarity metrics and taxonomic levels 
   # prepare data to be compared
@@ -223,10 +232,10 @@ compareMLMLandLavrador<- function(mydf_mlml, mydf_lavrador, identity_th){
 pickFinalTax_MLMLvsLavrador <- function(mydf){
   # Pick best final id and keep final percent identity
   # Args
-  #   mydf: classified dataframe after running compareDatabases(), compareTaxMatches(), and classifyAssignments()
+  #   mydf: classified dataframe after running compareMLMLvsLavrador()
   # Output
   #   The function will keep only the higher taxonomy of the best hit, and will add column database_source to track where the match came from
-  # Usage: pickFinalTax(.) 
+  # Usage: pickFinalTax_MLMLvsLavrador(.) 
   #
   mydf_ed <- mydf %>% 
     mutate(tax_string = case_when(grepl("keep mlml", match_outcome) ~ tax_string_mlml,
@@ -358,4 +367,104 @@ pickFinalTax_GlobalVsCurated <- function(mydf){
     select(query_seqid, database_source, match_name, bitscore, percent_coverage, percent_identity, sciname, sciname_level, tax_string, taxonomy_source) 
   # return modified dataframe that includes only the final chosen hit from each database
   return(mydf_ed)
+}
+
+compareLocalVSGlobal <- function(mydf_local, mydf_global, identity_th){
+  # Compares similarity measures between local and global databases
+  # Args
+  #   mydf_local: merged dataframe with blast results from a local/curated database (more trusted database)
+  #   mydf_global1: merged dataframe with blast results from the global database
+  #   identity_th: percent identity threshold we define as a "good" match - can vary with project & PI & genetic marker
+  # Output
+  #   the function will add columns useful for later comparison of matches to the local and global database
+  # 
+  mydf_local_ed <- mydf_local %>% 
+    addScinameLevel() %>% 
+    labelFinalMatch(., label = "local") %>% 
+    dplyr::rename(query_seqid = query_seqid_local)
+  
+  mydf_global_ed <- mydf_global %>% 
+    addScinameLevel() %>% 
+    labelFinalMatch(., label = "global1") %>% 
+    dplyr::rename(query_seqid = query_seqid_global)
+  
+  mydf_ed <- mydf_local_ed %>%
+    full_join(mydf_global_ed, by = "query_seqid") %>% 
+    
+    mutate(sciname_agree = ifelse(sciname_local == sciname_global, TRUE, FALSE),
+           sciname_level_agree = ifelse(sciname_level_local == sciname_level_global, TRUE, FALSE),
+           best_db_identity  = case_when(!is.na(percent_identity_local) & is.na(percent_identity_global) ~ "local only",
+                                         is.na(percent_identity_local) & !is.na(percent_identity_global) ~ "global only",
+                                         percent_identity_global <= percent_identity_local ~ "local",
+                                         percent_identity_global > percent_identity_local ~ "global",
+                                         T ~ "CHECK"),
+           match_outcome = case_when(sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+                                       percent_identity_global >= identity_th ~ "tricky and relevant - all - separate function",
+                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local < identity_th & 
+                                       percent_identity_global < identity_th ~ "tricky and irrelevant - separate function",
+                                     is.na(tax_string_local) & is.na(tax_string_global) ~ "no match from either",
+                                     T ~ best_db_identity)) %>% 
+    relocate(c("best_db_identity", "match_outcome"), .after = query_seqid) %>% # "best_db_coverage", "best_db_length",
+    mutate(across(starts_with("sciname_level"), ~ factor(.x, levels = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), ordered = T)))
+  
+  # separate "Tricky" cases where we want to compare taxonomic resolution achieved by each database
+  mydf_ed_1 <- mydf_ed %>% 
+    filter(grepl("tricky", match_outcome)) %>% 
+    rowwise() %>% 
+    mutate(match_outcome = case_when(sciname_level_local == sciname_level_global ~ "keep local - synonym?",
+                                     sciname_level_local > sciname_level_global1 ~ "keep local",
+                                     sciname_level_local < sciname_level_global1 ~ "keep global"
+                                     T ~ match_outcome)) %>% 
+    ungroup()
+  
+  mydf_ed_2 <- mydf_ed %>% 
+    filter(!grepl("tricky", match_outcome))
+  
+  mydf_ed_final <- bind_rows(mydf_ed_1, mydf_ed_2) %>% 
+    mutate(match_outcome = ifelse(str_detect(match_outcome, "keep"), match_outcome, paste("keep", match_outcome)))
+  
+  return(mydf_ed_final)
+}
+
+pickFinalTax_LocalVSGlobal <- function(mydf){
+  # Pick best final id and keep final percent identity
+  # Args
+  #   mydf: classified dataframe after running compareLocalVSGlobal()
+  # Output
+  #   The function will keep only the higher taxonomy of the best hit, and will add column database_source to track where the match came from
+  # Usage: pick3FinalTax(.) 
+  # Notes
+  #   Currently there is no function (work in progress) for dealing with assignments to equal, but varying taxonomic levels (any possible values are likely synonyms)
+  mydf_ed <- mydf %>% 
+    mutate(final_tax = case_when(str_detect(match_outcome, "synonym") ~ NA_character_,
+                                 str_detect(match_outcome, "local") ~ tax_string_local,
+                                 str_detect(match_outcome, "global") ~ tax_string_global,
+                                 T ~ "CHECK"),
+           taxonomy_source = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
+                                       str_detect(match_outcome, "local") ~ taxonomy_source_local,
+                                       str_detect(match_outcome, "global") ~ taxonomy_source_global,
+                                       T ~ "CHECK"),
+           database_source = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
+                                       str_detect(match_outcome, "local") ~ local_name,
+                                       str_detect(match_outcome, "global") ~ global_name,
+                                       T ~ "CHECK"),
+           match_name = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
+                                  str_detect(match_outcome, "local") ~ result_seqid_local,
+                                  str_detect(match_outcome, "global") ~ result_seqid_global,
+                                  T ~ "CHECK"),
+           percent_identity_final = case_when(str_detect(match_outcome, "synonym") ~ NA,
+                                              str_detect(match_outcome, "local") ~ percent_identity_local,
+                                              str_detect(match_outcome, "global") ~ percent_identity_global,
+                                              T ~ NA)) %>%
+    select(query_seqid, database_source, match_name, percent_identity_final, final_tax, taxonomy_source) %>% 
+    unpackTaxString()
+  
+  if(any(mydf_ed$taxonomy_source == "attention_required")) {
+    
+    warning("Some taxonomic assignments differ at the lowest taxonomic level. Please manually check for synonyms or another lowest common taxonomic level before proceeding.")
+    
+  }
+  # return modified dataframe that includes only the final chosen hit from each database
+  return(mydf_ed)
+  
 }
