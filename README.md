@@ -37,6 +37,16 @@ We also need to add higher taxonomy for the resulting matches. Our functions req
 
 Finally, we need to keep only the best hit from each database. So for each ASV or OTU, we need only one match per database. For our work, we have been using the best-shared-method from [Pappalardo et al. (2025)](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.70147).
 
+## Comparison rules
+
+To compare across databases, our functions set up a BLAST percent identity threshold (identity_th) to define what we consider a "good" match. This will depend on the genetic marker and/or taxonomic group so we encourage users to select their own. Comparison across databases were done with the following rules:
+* For matches to the same scientific name, we kept the one that had higher similarity measures with the unknown sequence.
+* If only one of the matches had a percent identity higher than the BLAST percent identity threshold, we kept that one, regardless of the database of origin.
+* When only one database returned a match from BLAST, we kept that one.
+* If the scientific names disagree and both matches had a higher than the BLAST percent identity threshold, we kept the one with better taxonomic resolution. If the taxonomic resolution was the same, we would prioritize the local database match, or BOLD over MIDORI.
+* If both matches were under the BLAST percent identity threshold, we kept the one with the best similarity measures.
+
+
 ## compare-two-databases.R
 
 This R file includes functions:
