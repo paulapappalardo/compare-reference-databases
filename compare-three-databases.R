@@ -14,6 +14,33 @@
 # Notes: requires addScinameLevel() and labelFinalMatch() from compare-two-databases.R
 #------------------------------------------------------------------------------#
 
+addScinameLevel <- function(mydf){
+  # Finds the taxonomic resolution for a scientific name
+  # Args:
+  #  mydf: dataframe with taxonomic columns kingdom, phylum, class, order, family, genus, and species 
+  #  TODO: consider activating subfamily if you are dealing with BOLD output
+  # Ouput:
+  #   same dataframe with an additional column named sciname_level
+  if(!"sciname" %in% names(mydf)) {
+    mydf <- mydf %>% 
+      rowwise() %>% 
+      mutate(sciname = dplyr::last(na.omit(c(kingdom, phylum, class, order, family, genus, species)))) %>% 
+      ungroup()
+  } 
+  mydf_ed <- mydf %>% 
+    mutate(sciname_level = case_when(sciname %in% na.omit(species) ~ "species",
+                                     sciname %in% na.omit(genus) ~ "genus",
+                                     sciname %in% na.omit(family) ~ "family",
+                                     #sciname %in% na.omit(subfamily) ~ "subfamily", # if using
+                                     sciname %in% na.omit(order) ~ "order",
+                                     sciname %in% na.omit(class) ~ "class",
+                                     sciname %in% na.omit(phylum) ~ "phylum",
+                                     sciname %in% na.omit(kingdom) ~ "kingdom")) %>% 
+    relocate(sciname_level, .after = sciname)
+  # return modified dataframe
+  return(mydf_ed)
+}
+
 compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_th){
   # Compares similarity measures between local and global databases
   # Args
@@ -27,17 +54,20 @@ compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_t
   #
   mydf_local_ed <- mydf_local %>% 
     addScinameLevel() %>% 
-    labelFinalMatch(., label = "local") %>% 
+    unite("tax_string", c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";", remove = TRUE) %>% 
+    rename_all(~paste(.x, "local", sep = "_")) %>% 
     dplyr::rename(query_seqid = query_seqid_local)
   
   mydf_global1_ed <- mydf_global1 %>% 
     addScinameLevel() %>% 
-    labelFinalMatch(., label = "global1") %>% 
+    unite("tax_string", c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";", remove = TRUE) %>% 
+    rename_all(~paste(.x, "global1", sep = "_")) %>% 
     dplyr::rename(query_seqid = query_seqid_global1)
   
   mydf_global2_ed <- mydf_global2 %>% 
     addScinameLevel() %>%
-    labelFinalMatch(., label = "global2") %>% 
+    unite("tax_string", c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";", remove = TRUE) %>% 
+    rename_all(~paste(.x, "global2", sep = "_")) %>% 
     dplyr::rename(query_seqid = query_seqid_global2)
   
   mydf_ed <- mydf_local_ed %>%

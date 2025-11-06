@@ -48,11 +48,9 @@ labelFinalMatch <- function(mydf, label){
   # 
   # combine all taxonomic levels into one string
   mydf_ed <- mydf %>% 
-    mutate(tax_string = paste(kingdom, phylum, class, order, family, genus, species, sep = ";")) %>% 
-    select(-kingdom, -phylum, -class, -order, -family, -genus, -species)
+    unite("tax_string", c("kingdom", "phylum", "class", "order", "family", "genus", "species"), sep = ";", remove = TRUE) %>% 
+    rename_all(~paste(.x, label, sep = "_"))
   # rename columns to indicate database source
-  newnames <- paste(names(mydf_ed), label, sep = "_")
-  names(mydf_ed) <- newnames
   return(mydf_ed)
 }
 
