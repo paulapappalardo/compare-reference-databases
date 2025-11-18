@@ -73,15 +73,16 @@ compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_t
   mydf_ed <- mydf_local_ed %>%
     full_join(mydf_global1_ed, by = "query_seqid") %>%
     full_join(mydf_global2_ed, by = "query_seqid") %>%
-    mutate(sciname_agree = case_when(sciname_local == sciname_global1 & sciname_global1 == sciname_global2 ~ "all_agree", 
+    mutate(across(starts_with("sciname_level"), ~ factor(.x, levels = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), ordered = T)) ,
+           sciname_agree = case_when(sciname_local == sciname_global1 & sciname_global1 == sciname_global2 ~ "all_agree",
                                      sciname_local == sciname_global1 & sciname_global1 != sciname_global2 ~ "local&global1 agree",
                                      sciname_local != sciname_global1 & sciname_local == sciname_global2 ~ "local&global2 agree",
                                      sciname_local != sciname_global1 & sciname_global1 == sciname_global2 ~ "global1&global2 agree",
                                      sciname_local == sciname_global1 & is.na(sciname_global2) ~ "local&global1 agree",
                                      sciname_local == sciname_global2 & is.na(sciname_global1) ~ "local&global2 agree",
                                      sciname_global1 == sciname_global2 & is.na(sciname_local) ~ "global1&global2 agree",
-                                     T ~ "no_agreement"),
-           sciname_level_agree = case_when(sciname_level_local == sciname_level_global1 & sciname_level_global1 == sciname_level_global2 ~ "all_agree", 
+                                     T ~ "no_agreement") ,
+           sciname_level_agree = case_when(sciname_level_local == sciname_level_global1 & sciname_level_global1 == sciname_level_global2 ~ "all_agree",
                                            sciname_level_local == sciname_level_global1 & sciname_level_global1 != sciname_level_global2 ~ "local&global1 agree",
                                            sciname_level_local != sciname_level_global1 & sciname_level_local == sciname_level_global2 ~ "local&global2 agree",
                                            sciname_level_local != sciname_level_global1 & sciname_level_global1 == sciname_level_global2 ~ "global1&global2 agree",
@@ -102,50 +103,49 @@ compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_t
                                          percent_identity_global2 > percent_identity_local & is.na(percent_identity_global1) ~ "global2",
                                          percent_identity_global2 > percent_identity_global1 & is.na(percent_identity_local) ~ "global2",
                                          T ~ "CHECK"),
-           match_outcome = case_when(sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+           match_outcome = case_when(sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - all - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 < identity_th ~ "tricky and relevant - local&global1 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 < identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - local&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local < identity_th & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local < identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - global1&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & is.na(percent_identity_global2) ~ "tricky and relevant - local&global1 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local >= identity_th & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        is.na(percent_identity_global1) & percent_identity_global2 >= identity_th ~ "tricky and relevant - local&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & is.na(percent_identity_local) & 
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & is.na(percent_identity_local) &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - global1&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree == "no_agreement" & percent_identity_local < identity_th & 
-                                       percent_identity_global1 < identity_th & percent_identity_global2 < identity_th ~ "tricky and irrelevant - separate function",
-                                     is.na(percent_identity_local) & is.na(percent_identity_global1) & is.na(percent_identity_global2) ~ "no match from any",
+                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" &  percent_identity_local < identity_th &
+                                       percent_identity_global1 < identity_th & percent_identity_global2 < identity_th~ "tricky and irrelevant - separate function",
                                      T ~ best_db_identity)) %>% # includes when sciname and level do not agree or when only one agrees (scinames can agree at name but not at level in a few cases like Oomycota)
-    relocate(c("best_db_identity", "match_outcome"), .after = query_seqid) %>%  #"best_db_coverage", "best_db_length", 
-    mutate(across(starts_with("sciname_level"), ~ factor(.x, levels = c("kingdom", "phylum", "class", "order", "family", "genus", "species"), ordered = T)))
-  
-  # separate "Tricky" cases where we want to compare taxonomic resolution achieved by each database
-  mydf_ed_1 <- mydf_ed %>% 
-    filter(grepl("tricky", match_outcome)) %>% 
-    rowwise() %>% 
-    mutate(match_outcome = case_when(sciname_level_local == sciname_level_global1 & sciname_level_local == sciname_level_global2 ~ "keep local - synonym?",
-                                     sciname_level_local >= sciname_level_global1 & sciname_level_local >= sciname_level_global2 ~ "keep local",
-                                     sciname_level_local < sciname_level_global1 & sciname_level_global1 > sciname_level_global2 ~ "keep global1",
-                                     sciname_level_local < sciname_level_global2 & sciname_level_global1 < sciname_level_global2 ~ "keep global2",
-                                     sciname_level_local < sciname_level_global1 &  sciname_level_global1 == sciname_level_global2 ~ "keep global1 - synonym?",
-                                     sciname_level_local > sciname_level_global1 &  is.na(sciname_level_global2) ~ "keep local",
-                                     sciname_level_local < sciname_level_global1 &  is.na(sciname_level_global2) ~ "keep global1",
-                                     sciname_level_local > sciname_level_global2 &  is.na(sciname_level_global1)  ~ "keep local",
-                                     sciname_level_local < sciname_level_global2 &  is.na(sciname_level_global1)  ~ "keep global2",
-                                     sciname_level_global1 > sciname_level_global2 &  is.na(sciname_level_local)  ~ "keep global1",
-                                     sciname_level_global1 < sciname_level_global2 &  is.na(sciname_level_local)  ~ "keep global2",
-                                     T ~ match_outcome)) %>% 
+    relocate(c("best_db_identity", "match_outcome"), .after = query_seqid) #"best_db_coverage", "best_db_length",
+    
+  # # separate "Tricky" cases where we want to compare taxonomic resolution achieved by each database
+  mydf_ed_1 <- mydf_ed %>%
+    filter(grepl("tricky", match_outcome)) %>%
+    rowwise() %>%
+    mutate(match_outcome_final = case_when(str_detect(match_outcome, "irrelevant") ~ best_db_identity,
+                                           str_detect(match_outcome, "all") & sciname_level_local >= sciname_level_global1 & sciname_level_local >= sciname_level_global2 ~ "keep local",
+                                           str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global1 & sciname_level_global1 > sciname_level_global2 ~ "keep global1",
+                                           str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global2 & sciname_level_global1 < sciname_level_global2 ~ "keep global2",
+                                           str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global1 &  sciname_level_global1 == sciname_level_global2 ~ "keep global1 - synonym?",
+                                           str_detect(match_outcome, "local&global1") & sciname_level_local >= sciname_level_global1 ~ "keep local",
+                                           str_detect(match_outcome, "local&global2") & sciname_level_local >= sciname_level_global2 ~ "keep local",
+                                           str_detect(match_outcome, "local&global1") & sciname_level_local < sciname_level_global1 ~ "keep global1",
+                                           str_detect(match_outcome, "global1&global2") & sciname_level_global1 >= sciname_level_global2 ~ "keep global1",
+                                           str_detect(match_outcome, "local&global2") & sciname_level_local < sciname_level_global2 ~ "keep global2",
+                                           str_detect(match_outcome, "global1&global2") & sciname_level_global1 < sciname_level_global2 ~ "keep global2",
+                                           T ~ match_outcome)) %>%
     ungroup()
-  
-  mydf_ed_2 <- mydf_ed %>% 
-    filter(!grepl("tricky", match_outcome))
-  
-  mydf_ed_final <- bind_rows(mydf_ed_1, mydf_ed_2) %>% 
-    mutate(match_outcome = ifelse(str_detect(match_outcome, "keep"), match_outcome, paste("keep", match_outcome)))
+
+  mydf_ed_2 <- mydf_ed %>%
+    filter(!grepl("tricky", match_outcome)) %>% 
+    mutate(match_outcome_final = match_outcome)
+
+  mydf_ed_final <- bind_rows(mydf_ed_1, mydf_ed_2)# %>%
+    # mutate(match_outcome = ifelse(str_detect(match_outcome, "keep"), match_outcome, paste("keep", match_outcome)))
   
   return(mydf_ed_final)
 }
@@ -160,30 +160,30 @@ pick3FinalTax <- function(mydf){
   # Notes:
   #   Currently there is no function (work in progress) for dealing with assignments to equal, but varying taxonomic levels (any possible values are likely synonyms)
   mydf_ed <- mydf %>% 
-    mutate(final_tax = case_when(str_detect(match_outcome, "synonym") ~ NA_character_,
-                                 str_detect(match_outcome, "local") ~ tax_string_local,
-                                 str_detect(match_outcome, "global1") ~ tax_string_global1,
-                                 str_detect(match_outcome, "global2") ~ tax_string_global2,
+    mutate(final_tax = case_when(str_detect(match_outcome_final, "synonym") ~ NA_character_,
+                                 str_detect(match_outcome_final, "local") ~ tax_string_local,
+                                 str_detect(match_outcome_final, "global1") ~ tax_string_global1,
+                                 str_detect(match_outcome_final, "global2") ~ tax_string_global2,
                                  T ~ "CHECK"),
-           taxonomy_source = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
-                                       str_detect(match_outcome, "local") ~ taxonomy_source_local,
-                                       str_detect(match_outcome, "global1") ~ taxonomy_source_global1,
-                                       str_detect(match_outcome, "global2") ~ taxonomy_source_global2,
+           taxonomy_source = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
+                                       str_detect(match_outcome_final, "local") ~ taxonomy_source_local,
+                                       str_detect(match_outcome_final, "global1") ~ taxonomy_source_global1,
+                                       str_detect(match_outcome_final, "global2") ~ taxonomy_source_global2,
                                        T ~ "CHECK"),
-           database_source = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
-                                       str_detect(match_outcome, "local") ~ local_name,
-                                       str_detect(match_outcome, "global1") ~ global1_name,
-                                       str_detect(match_outcome, "global2") ~ global2_name,
+           database_source = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
+                                       str_detect(match_outcome_final, "local") ~ local_name,
+                                       str_detect(match_outcome_final, "global1") ~ global1_name,
+                                       str_detect(match_outcome_final, "global2") ~ global2_name,
                                        T ~ "CHECK"),
-           match_name = case_when(str_detect(match_outcome, "synonym") ~ "attention_required",
-                                  str_detect(match_outcome, "local") ~ result_seqid_local,
-                                  str_detect(match_outcome, "global1") ~ result_seqid_global1,
-                                  str_detect(match_outcome, "global2") ~ result_seqid_global2,
+           match_name = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
+                                  str_detect(match_outcome_final, "local") ~ result_seqid_local,
+                                  str_detect(match_outcome_final, "global1") ~ result_seqid_global1,
+                                  str_detect(match_outcome_final, "global2") ~ result_seqid_global2,
                                   T ~ "CHECK"),
-           percent_identity_final = case_when(str_detect(match_outcome, "synonym") ~ NA,
-                                              str_detect(match_outcome, "local") ~ percent_identity_local,
-                                              str_detect(match_outcome, "global1") ~ percent_identity_global1,
-                                              str_detect(match_outcome, "global2") ~ percent_identity_global2,
+           percent_identity_final = case_when(str_detect(match_outcome_final, "synonym") ~ NA,
+                                              str_detect(match_outcome_final, "local") ~ percent_identity_local,
+                                              str_detect(match_outcome_final, "global1") ~ percent_identity_global1,
+                                              str_detect(match_outcome_final, "global2") ~ percent_identity_global2,
                                               T ~ NA)) %>%
     select(query_seqid, database_source, match_name, percent_identity_final, final_tax, taxonomy_source) %>% 
     unpackTaxString()
