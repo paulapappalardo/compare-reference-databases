@@ -160,35 +160,30 @@ pick3FinalTax <- function(mydf){
   # Notes:
   #   Currently there is no function (work in progress) for dealing with assignments to equal, but varying taxonomic levels (any possible values are likely synonyms)
   mydf_ed <- mydf %>% 
-    mutate(final_tax = case_when(str_detect(match_outcome_final, "synonym") ~ NA_character_,
-                                 str_detect(match_outcome_final, "local") ~ tax_string_local,
+    mutate(final_tax = case_when(str_detect(match_outcome_final, "local") ~ tax_string_local,
                                  str_detect(match_outcome_final, "global1") ~ tax_string_global1,
                                  str_detect(match_outcome_final, "global2") ~ tax_string_global2,
                                  T ~ "CHECK"),
-           taxonomy_source = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
-                                       str_detect(match_outcome_final, "local") ~ taxonomy_source_local,
+           taxonomy_source = case_when(str_detect(match_outcome_final, "local") ~ taxonomy_source_local,
                                        str_detect(match_outcome_final, "global1") ~ taxonomy_source_global1,
                                        str_detect(match_outcome_final, "global2") ~ taxonomy_source_global2,
                                        T ~ "CHECK"),
-           database_source = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
-                                       str_detect(match_outcome_final, "local") ~ local_name,
+           database_source = case_when(str_detect(match_outcome_final, "local") ~ local_name,
                                        str_detect(match_outcome_final, "global1") ~ global1_name,
                                        str_detect(match_outcome_final, "global2") ~ global2_name,
                                        T ~ "CHECK"),
-           match_name = case_when(str_detect(match_outcome_final, "synonym") ~ "attention_required",
-                                  str_detect(match_outcome_final, "local") ~ result_seqid_local,
+           match_name = case_when(str_detect(match_outcome_final, "local") ~ result_seqid_local,
                                   str_detect(match_outcome_final, "global1") ~ result_seqid_global1,
                                   str_detect(match_outcome_final, "global2") ~ result_seqid_global2,
                                   T ~ "CHECK"),
-           percent_identity_final = case_when(str_detect(match_outcome_final, "synonym") ~ NA,
-                                              str_detect(match_outcome_final, "local") ~ percent_identity_local,
+           percent_identity_final = case_when(str_detect(match_outcome_final, "local") ~ percent_identity_local,
                                               str_detect(match_outcome_final, "global1") ~ percent_identity_global1,
                                               str_detect(match_outcome_final, "global2") ~ percent_identity_global2,
                                               T ~ NA)) %>%
     select(query_seqid, database_source, match_name, percent_identity_final, final_tax, taxonomy_source) %>% 
     unpackTaxString()
   
-  if(any(mydf_ed$taxonomy_source == "attention_required")) {
+  if(any(str_detect(mydf$match_outcome_final, "synonym"))) {
     
     warning("Some taxonomic assignments differ at the lowest taxonomic level. Please manually check for synonyms or another lowest common taxonomic level before proceeding.")
     
