@@ -131,12 +131,12 @@ compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_t
                                            str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global1 & sciname_level_global1 > sciname_level_global2 ~ "keep global1",
                                            str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global2 & sciname_level_global1 < sciname_level_global2 ~ "keep global2",
                                            str_detect(match_outcome, "all") & sciname_level_local < sciname_level_global1 &  sciname_level_global1 == sciname_level_global2 ~ "keep global1 - synonym?",
-                                           str_detect(match_outcome, "local&global1") & sciname_level_local >= sciname_level_global1 ~ "keep local",
-                                           str_detect(match_outcome, "local&global2") & sciname_level_local >= sciname_level_global2 ~ "keep local",
-                                           str_detect(match_outcome, "local&global1") & sciname_level_local < sciname_level_global1 ~ "keep global1",
-                                           str_detect(match_outcome, "global1&global2") & sciname_level_global1 >= sciname_level_global2 ~ "keep global1",
-                                           str_detect(match_outcome, "local&global2") & sciname_level_local < sciname_level_global2 ~ "keep global2",
-                                           str_detect(match_outcome, "global1&global2") & sciname_level_global1 < sciname_level_global2 ~ "keep global2",
+                                           str_detect(match_outcome, "local&global1") & (sciname_level_local >= sciname_level_global1 | is.na(sciname_level_global1)) ~ "keep local",
+                                           str_detect(match_outcome, "local&global2") & (sciname_level_local >= sciname_level_global2 | is.na(sciname_level_global2)) ~ "keep local",
+                                           str_detect(match_outcome, "local&global1") & (sciname_level_local < sciname_level_global1 | is.na(sciname_level_local)) ~ "keep global1",
+                                           str_detect(match_outcome, "global1&global2") & (sciname_level_global1 >= sciname_level_global2 | is.na(sciname_level_global2)) ~ "keep global1",
+                                           str_detect(match_outcome, "local&global2") & (sciname_level_local < sciname_level_global2 | is.na(sciname_level_local)) ~ "keep global2",
+                                           str_detect(match_outcome, "global1&global2") & (sciname_level_global1 < sciname_level_global2 | is.na(sciname_level_global1)) ~ "keep global2",
                                            T ~ match_outcome)) %>%
     ungroup()
 
