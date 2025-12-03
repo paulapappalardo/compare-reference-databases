@@ -28,15 +28,17 @@ addScinameLevel <- function(mydf){
       ungroup()
   } 
   mydf_ed <- mydf %>% 
-    mutate(sciname_level = case_when(sciname %in% na.omit(species) ~ "species",
-                                     sciname %in% na.omit(genus) ~ "genus",
-                                     sciname %in% na.omit(family) ~ "family",
+    rowwise() %>% 
+    mutate(sciname_level = case_when(sciname == species ~ "species",
+                                     sciname == genus ~ "genus",
+                                     sciname == family ~ "family",
                                      #sciname %in% na.omit(subfamily) ~ "subfamily", # if using
-                                     sciname %in% na.omit(order) ~ "order",
-                                     sciname %in% na.omit(class) ~ "class",
-                                     sciname %in% na.omit(phylum) ~ "phylum",
-                                     sciname %in% na.omit(kingdom) ~ "kingdom")) %>% 
-    relocate(sciname_level, .after = sciname)
+                                     sciname == order ~ "order",
+                                     sciname == class ~ "class",
+                                     sciname == phylum ~ "phylum",
+                                     sciname == kingdom ~ "kingdom")) %>% 
+    relocate(sciname_level, .after = sciname) %>% 
+    ungroup()
   # return modified dataframe
   return(mydf_ed)
 }
@@ -103,21 +105,21 @@ compare3Databases <- function(mydf_local, mydf_global1, mydf_global2, identity_t
                                          percent_identity_global2 > percent_identity_local & is.na(percent_identity_global1) ~ "global2",
                                          percent_identity_global2 > percent_identity_global1 & is.na(percent_identity_local) ~ "global2",
                                          T ~ "CHECK"),
-           match_outcome = case_when(sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
+           match_outcome = case_when(sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - all - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 < identity_th ~ "tricky and relevant - local&global1 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 < identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - local&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local < identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local < identity_th &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - global1&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        percent_identity_global1 >= identity_th & is.na(percent_identity_global2) ~ "tricky and relevant - local&global1 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & percent_identity_local >= identity_th &
                                        is.na(percent_identity_global1) & percent_identity_global2 >= identity_th ~ "tricky and relevant - local&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" & is.na(percent_identity_local) &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" & is.na(percent_identity_local) &
                                        percent_identity_global1 >= identity_th & percent_identity_global2 >= identity_th ~ "tricky and relevant - global1&global2 - separate function",
-                                     sciname_agree == "no_agreement" & sciname_level_agree != "all_agree" &  percent_identity_local < identity_th &
+                                     sciname_agree != "all_agree" & sciname_level_agree != "all_agree" &  percent_identity_local < identity_th &
                                        percent_identity_global1 < identity_th & percent_identity_global2 < identity_th~ "tricky and irrelevant - separate function",
                                      T ~ best_db_identity)) %>% # includes when sciname and level do not agree or when only one agrees (scinames can agree at name but not at level in a few cases like Oomycota)
     relocate(c("best_db_identity", "match_outcome"), .after = query_seqid) #"best_db_coverage", "best_db_length",
